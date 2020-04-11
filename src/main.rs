@@ -1,16 +1,20 @@
 #[macro_use]
 extern crate diesel;
+#[macro_use]
+extern crate diesel_migrations;
 
 use actix_web::{middleware, post, web, App, Error, HttpResponse, HttpServer};
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::PgConnection;
+use diesel_migrations::embed_migrations;
 use dotenv::dotenv;
 use schema::stats;
 use std::env;
 
 mod schema;
 
+embed_migrations!();
 type DbPool = Pool<ConnectionManager<PgConnection>>;
 
 #[derive(Insertable)]
@@ -49,11 +53,13 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Failed to create pool.");
 
+    embedded_migrations::run(&pool.get().expect("Couldn't get connection for migrations"))
+        .expect("Could not run migrations");
+
     let port = env::var("PORT")
         .unwrap_or("4000".to_string())
         .parse()
         .expect("PORT must be a number");
-
     let bind = ("0.0.0.0", port);
     println!("Starting server at: {}:{}", bind.0, bind.1);
 
