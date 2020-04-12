@@ -19,21 +19,22 @@ type DbPool = Pool<ConnectionManager<PgConnection>>;
 
 #[derive(Insertable)]
 #[table_name = "stats"]
-pub struct Stats {
+struct Stats {
     pub data: serde_json::Value,
 }
 
 #[post("/")]
 async fn handler(
     pool: web::Data<DbPool>,
-    body: web::Json<serde_json::Value>,
+    body: web::Json<statslogger::Stats>,
 ) -> Result<HttpResponse, Error> {
     let conn = pool.get().expect("Couldn't get db connection from pool");
 
     web::block::<_, _, diesel::result::Error>(move || {
         diesel::insert_into(schema::stats::dsl::stats)
             .values(Stats {
-                data: body.into_inner(),
+                data: serde_json::to_value(body.into_inner())
+                    .expect("Failed to serialise record into JSON"),
             })
             .execute(&conn)?;
         Ok(())
